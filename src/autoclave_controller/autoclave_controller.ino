@@ -59,12 +59,14 @@ long int stateChangeTime = 0;
 //Function prototypes
 void idle_state();
 void running();
+String formatTime(long numSec);
 
 volatile int pressed = 0;
 volatile float pressure = 0.0;
 int setPoint = 0;
 long setTime = 0;
 volatile long currentTime = 0;
+volatile long previousTime = 0;
 
 //define touchable areas on screen as a rectantnle with diagonal points
 //defined by {x1,y1,x2,y2}
@@ -123,9 +125,17 @@ void setup()
   tft.setCursor(105, 225);
   tft.print("Running Time");
   tft.setFont();
-  tft.setCursor(105, 245);
   tft.setTextSize(6);
-  tft.print("0:00:00"); 
+  tft.setCursor(105, 245);
+  tft.print("0");
+  tft.setCursor(140, 245);
+  tft.print(":");
+  tft.setCursor(175, 245);
+  tft.print("00");
+  tft.setCursor(248,245);
+  tft.print(":");
+  tft.setCursor(285,245);
+  tft.print("00");
 
   //Set-up Timer1 for a 1 sec interrupt
   noInterrupts();           // disable all interrupts
@@ -145,7 +155,7 @@ void loop()
   switch(currentState)
   {
     case IDLE: idle_state(); break;
-    case RUNNING: runing();
+    case RUNNING: running();
   }
 }
 
@@ -200,12 +210,7 @@ void idle_state()
       
       currentState = RUNNING;
       }
-      else if(currentMode == HOLD)
-      {
-        currentMode = TIMER;
-        //draw timer text
-        Serial.println("MODE = TIMER");
-      }
+  }
   else if(p.z < MINPRESSURE && p.z >= 0)
   {
     isPressed = 0;  
@@ -216,6 +221,38 @@ void running()
 {
   Serial.println("RUNNING HOLD STATE");  
   //Upddate current pressure
+
+  //tft.fillRect(105,245,290, 280, BLACK);
+  if(currentTime != previousTime)
+  {
+    tft.setFont();
+    tft.setTextSize(6);
+    tft.setTextColor(BLACK);
+    tft.setCursor(105, 245);
+    tft.print((previousTime/60/60)%24);
+    tft.setCursor(140, 245);
+    tft.print(":");
+    tft.setCursor(175, 245);
+    tft.print(((previousTime/60)%60 < 10) ? "0" + String((previousTime/60)%60) : (previousTime/60)%60);
+    tft.setCursor(248,245);
+    tft.print(":");
+    tft.setCursor(285,245);
+    tft.print((previousTime%60 < 10) ? "0" + String(previousTime%60) : previousTime%60);
+    tft.setTextColor(WHITE);
+    tft.setCursor(105, 245);
+    tft.print((currentTime/60/60)%24);
+    tft.setCursor(140, 245);
+    tft.print(":");
+    tft.setCursor(175, 245);
+    tft.print(((currentTime/60)%60 < 10) ? "0" + String((currentTime/60)%60) : (currentTime/60)%60);
+    tft.setCursor(248,245);
+    tft.print(":");
+    tft.setCursor(285,245);
+    tft.print((currentTime%60 < 10) ? "0" + String(currentTime%60) : currentTime%60);
+
+    previousTime = currentTime;
+  }
+
 
   TSPoint p = ts.getPoint();
   int x, y;
@@ -242,10 +279,20 @@ void running()
   }
 }
 
+String formatTime(long numSec)
+{
+  return String(((numSec/60/60)%24)) + ":" + String(((numSec/60)%60)) + ":" + String((numSec%60));
+}
+
 ISR(TIMER1_COMPA_vect)
 {
   pressed = 0;
   //1. Read Sensor and store value
   pressure = analogRead(SENSOR_PIN);
+
+  if(currentState == RUNNING)
+  {
+    currentTime++;
+  }
 }
 
