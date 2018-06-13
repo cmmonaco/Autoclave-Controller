@@ -70,8 +70,8 @@ volatile long previousTime = 0;
 
 //define touchable areas on screen as a rectantnle with diagonal points
 //defined by {x1,y1,x2,y2}
-const int PRESSURE_UP_AREA[] = {0, 0, 340, 200};
-const int PRESSURE_DOWN_AREA[] = {90, 200, 360, 320};
+const int PRESSURE_UP_AREA[] = {0, 200, 90, 260};
+const int PRESSURE_DOWN_AREA[] = {0, 260, 90, 320};
 const int START_STOP_AREA[] = {361, 200, 480, 320};
 
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, A4);
@@ -113,6 +113,7 @@ void setup()
   tft.setFont(&FreeSans12pt7b);
   tft.setCursor(10, 180);
   tft.print("Set Point: ");
+  tft.setCursor(120, 180);
   tft.setFont(&FreeSans18pt7b);
   tft.print(setPoint);
   tft.setFont(&FreeSans12pt7b);
@@ -136,6 +137,9 @@ void setup()
   tft.print(":");
   tft.setCursor(285,245);
   tft.print("00");
+  tft.drawFastHLine(0,260, 90, WHITE);
+  tft.fillTriangle(10 ,250, 45, 210, 80, 250, WHITE);
+  tft.fillTriangle(10, 270, 45, 310, 80, 270, WHITE);
 
   //Set-up Timer1 for a 1 sec interrupt
   noInterrupts();           // disable all interrupts
@@ -209,7 +213,49 @@ void idle_state()
       tft.fillRect(395, 230, 60,60, RED);
       
       currentState = RUNNING;
+    }
+    else if((x > PRESSURE_UP_AREA[0] && x < PRESSURE_UP_AREA[2]) && (y > PRESSURE_UP_AREA[1] && y < PRESSURE_UP_AREA[3]))
+    {
+      tft.setTextSize(1);
+      tft.setTextColor(BLACK);
+      tft.setCursor(120, 174);
+      tft.setFont(&FreeSans18pt7b);
+      tft.print(setPoint);
+      tft.setFont(&FreeSans12pt7b);
+      tft.print("  KPa");
+      //increase set point by 10
+      setPoint += 10;
+      //redraw setpoint number
+      tft.setTextColor(WHITE);
+      tft.setCursor(120, 180);
+      tft.setFont(&FreeSans18pt7b);
+      tft.print(setPoint);
+      tft.setFont(&FreeSans12pt7b);
+      tft.print("  KPa");
+    }
+    else if((x > PRESSURE_DOWN_AREA[0] && x < PRESSURE_DOWN_AREA[2]) && (y > PRESSURE_DOWN_AREA[1] && y < PRESSURE_DOWN_AREA[3]))
+    {
+      //decrease setPoint by 10
+      if(setPoint > 0)
+      {
+        tft.setTextSize(1);
+      tft.setTextColor(BLACK);
+      tft.setCursor(120, 174);
+      tft.setFont(&FreeSans18pt7b);
+      tft.print(setPoint);
+      tft.setFont(&FreeSans12pt7b);
+      tft.print("  KPa");
+      //increase set point by 10
+      setPoint -= 10;
+      //redraw setpoint number
+      tft.setTextColor(WHITE);
+      tft.setCursor(120, 180);
+      tft.setFont(&FreeSans18pt7b);
+      tft.print(setPoint);
+      tft.setFont(&FreeSans12pt7b);
+      tft.print("  KPa");
       }
+    }
   }
   else if(p.z < MINPRESSURE && p.z >= 0)
   {
