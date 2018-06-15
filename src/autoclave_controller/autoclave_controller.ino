@@ -13,7 +13,6 @@
 #include <Adafruit_TFTLCD.h> // Hardware-specific library
 #include <TouchScreen.h>
 #include <Fonts/FreeSans18pt7b.h>
-#include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans9pt7b.h>
 
 //LCD Control Pins
@@ -27,8 +26,8 @@
 #define Y_PLUS A3
 #define X_PLUS A2
 
-#define MINPRESSURE 10
-#define MAXPRESSURE 1000
+#define TS_MINPRESSURE 10
+#define TS_MAXPRESSURE 1000
 #define TS_MINX 950
 #define TS_MAXX 91
 #define TS_MINY 127
@@ -44,6 +43,10 @@
 #define WHITE   0xFFFF
 
 #define SENSOR_PIN A5
+#define RELAY_PIN A4
+
+#define LOWER_PRESS_THRESHOLD 50
+#define UPPER_PRESS_THRESHOLD 20
 
 //Define states and modes
 enum state {
@@ -59,12 +62,11 @@ long int stateChangeTime = 0;
 //Function prototypes
 void idle_state();
 void running();
-String formatTime(long numSec);
 
 volatile int pressed = 0;
-volatile float pressure = 0.0;
+volatile int pressure = 0;
+int previousPressure = 0;
 int setPoint = 0;
-long setTime = 0;
 volatile long currentTime = 0;
 volatile long previousTime = 0;
 
@@ -80,6 +82,9 @@ TouchScreen ts = TouchScreen(X_PLUS, Y_PLUS, X_MINUS, Y_MINUS, 278);
 void setup()
 {
   Serial.begin(9600);
+
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
   
   //Get Screen Ready
 	tft.reset();
@@ -110,13 +115,13 @@ void setup()
   tft.print("ON");
   tft.setCursor(375, 160);
   tft.print("OFF");
-  tft.setFont(&FreeSans12pt7b);
+  tft.setFont(&FreeSans18pt7b);
   tft.setCursor(10, 180);
   tft.print("Set Point: ");
-  tft.setCursor(120, 180);
+  tft.setCursor(170, 180);
   tft.setFont(&FreeSans18pt7b);
   tft.print(setPoint);
-  tft.setFont(&FreeSans12pt7b);
+  tft.setFont(&FreeSans18pt7b);
   tft.print("  KPa");
   tft.setFont(&FreeSans9pt7b);
   tft.setCursor(360, 20);
@@ -170,6 +175,7 @@ void idle_state()
   if(previousState != IDLE)
   {
     //Set relay off
+    digitalWrite(RELAY_PIN, LOW);
 
     //Draw Relay status off (function)
     tft.drawRect(350, 30, 120, 80, BLACK);
@@ -187,15 +193,32 @@ void idle_state()
   }
 
   //print updated pressure reading
-  tft.setFont();
-  tft.setCursor(5,30);
-  tft.setTextSize(15);
-  tft.print("000"); //tft.print(pressure);
-     
+  if(pressure != previousPressure)
+  {
+    tft.fillRect(5,30,262,110, BLACK);
+    tft.setFont();
+    tft.setTextSize(15);
+    tft.setCursor(5,30);
+    if(pressure < 10)
+    {
+      tft.print("00" + String(pressure));
+    }
+    else if(pressure < 100)
+    {
+      tft.print("0" + String(pressure));
+    }
+    else
+    {
+      tft.print(pressure);
+    }
+
+    previousPressure = pressure;
+  }
+
   TSPoint p = ts.getPoint();
   int x, y;
   Serial.println(p.z);
-  if (p.z > MINPRESSURE && p.z < MAXPRESSURE && isPressed == 0)
+  if (p.z > TS_MINPRESSURE && p.z < TS_MAXPRESSURE && isPressed == 0)
   {
     isPressed = 1;
     x = map(p.y, TS_MINX, TS_MAXX, 0, tft.width());
@@ -216,21 +239,14 @@ void idle_state()
     }
     else if((x > PRESSURE_UP_AREA[0] && x < PRESSURE_UP_AREA[2]) && (y > PRESSURE_UP_AREA[1] && y < PRESSURE_UP_AREA[3]))
     {
-      tft.setTextSize(1);
-      tft.setTextColor(BLACK);
-      tft.setCursor(120, 174);
-      tft.setFont(&FreeSans18pt7b);
-      tft.print(setPoint);
-      tft.setFont(&FreeSans12pt7b);
-      tft.print("  KPa");
+      tft.fillRect(170, 150, 160, 40, BLACK);
       //increase set point by 10
       setPoint += 10;
       //redraw setpoint number
-      tft.setTextColor(WHITE);
-      tft.setCursor(120, 180);
+      tft.setTextSize(1);
+      tft.setCursor(170, 174);
       tft.setFont(&FreeSans18pt7b);
       tft.print(setPoint);
-      tft.setFont(&FreeSans12pt7b);
       tft.print("  KPa");
     }
     else if((x > PRESSURE_DOWN_AREA[0] && x < PRESSURE_DOWN_AREA[2]) && (y > PRESSURE_DOWN_AREA[1] && y < PRESSURE_DOWN_AREA[3]))
@@ -238,26 +254,19 @@ void idle_state()
       //decrease setPoint by 10
       if(setPoint > 0)
       {
-        tft.setTextSize(1);
-      tft.setTextColor(BLACK);
-      tft.setCursor(120, 174);
-      tft.setFont(&FreeSans18pt7b);
-      tft.print(setPoint);
-      tft.setFont(&FreeSans12pt7b);
-      tft.print("  KPa");
+      tft.fillRect(170, 150, 160, 40, BLACK);
       //increase set point by 10
       setPoint -= 10;
       //redraw setpoint number
-      tft.setTextColor(WHITE);
-      tft.setCursor(120, 180);
+      tft.setTextSize(1);
+      tft.setCursor(170, 174);
       tft.setFont(&FreeSans18pt7b);
       tft.print(setPoint);
-      tft.setFont(&FreeSans12pt7b);
       tft.print("  KPa");
       }
     }
   }
-  else if(p.z < MINPRESSURE && p.z >= 0)
+  else if(p.z < TS_MINPRESSURE && p.z >= 0)
   {
     isPressed = 0;  
   }
@@ -266,9 +275,34 @@ void idle_state()
 void running()
 {
   Serial.println("RUNNING HOLD STATE");  
+  
+  //Turn On Relay
+  if(pressure <= setPoint - LOWER_PRESS_THRESHOLD)
+  {
+    digitalWrite(RELAY_PIN, HIGH);
+  }
+  else if(pressure >= setPoint + UPPER_PRESS_THRESHOLD)
+  {
+    digitalWrite(RELAY_PIN, LOW);
+  }
+  
   //Upddate current pressure
+  tft.setFont();
+  tft.setCursor(5,30);
+  tft.setTextSize(15);
+  if(pressure < 10)
+  {
+    tft.print("00" + String(pressure));
+  }
+  else if(pressure < 100)
+  {
+    tft.print("0" + String(pressure));
+  }
+  else
+  {
+    tft.print(pressure);
+  }
 
-  //tft.fillRect(105,245,290, 280, BLACK);
   if(currentTime != previousTime)
   {
     tft.setFont();
@@ -303,7 +337,7 @@ void running()
   TSPoint p = ts.getPoint();
   int x, y;
   Serial.println(p.z);
-  if (p.z > MINPRESSURE && p.z < MAXPRESSURE && isPressed == 0)
+  if (p.z > TS_MINPRESSURE && p.z < TS_MAXPRESSURE && isPressed == 0)
   {
     isPressed = 1;
     x = map(p.y, TS_MINX, TS_MAXX, 0, tft.width());
@@ -314,20 +348,14 @@ void running()
     if((x > START_STOP_AREA[0] && x < START_STOP_AREA[2]) && (y > START_STOP_AREA[1] && y < START_STOP_AREA[3]))
     {
       //setTime to zero
-      currentTime = setTime;
       currentState = IDLE;
       previousState = RUNNING;
     }
   }
-  else if(p.z < MINPRESSURE && p.z >= 0)
+  else if(p.z < TS_MINPRESSURE && p.z >= 0)
   {
     isPressed = 0;
   }
-}
-
-String formatTime(long numSec)
-{
-  return String(((numSec/60/60)%24)) + ":" + String(((numSec/60)%60)) + ":" + String((numSec%60));
 }
 
 ISR(TIMER1_COMPA_vect)
