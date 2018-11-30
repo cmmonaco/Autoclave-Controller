@@ -14,13 +14,15 @@
 #define SENSOR_PIN A0
 #define RELAY_PIN 8
 #define SET_PIN A4
-#define START_STOP_PIN 2
+#define START_STOP_PIN 7
+#define RLED_PIN 10
+#define GLED_PIN 9
 
 #define SETPOINT_LOWER 0
 #define SETPOINT_UPPER 140
 
 #define LOWER_PRESS_THRESHOLD 10
-#define UPPER_PRESS_THRESHOLD 10
+#define UPPER_PRESS_THRESHOLD 0
 
 #define PRESSURE_KPA(V) ((7.7 * V) - 3.18) * 6.89476
 
@@ -40,19 +42,24 @@ volatile int pressure = 0;
 int pressed = 0;
 int previousPressure = 0;
 int setPoint = 0;
+int setPointReached = 0;
 volatile long currentTime = 0;
 volatile long previousTime = 0;
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(12, 11, 5, 4, 3, 7);
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 void setup() {
 
   Serial.begin(9600);
 
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(RELAY_PIN, HIGH);
   pinMode(START_STOP_PIN, INPUT_PULLUP);
+  pinMode(RLED_PIN, OUTPUT);
+  digitalWrite(RLED_PIN, LOW);
+  pinMode(GLED_PIN, OUTPUT);
+  digitalWrite(GLED_PIN, HIGH);
   //attachInterrupt(digitalPinToInterrupt(START_STOP_PIN), pin_ISR, FALLING);
   
   lcd.begin(2,16);
@@ -114,11 +121,16 @@ void idle_state() {
   if(previousState != IDLE)
   {
     //Set relay off
-    digitalWrite(RELAY_PIN, LOW);
+    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RLED_PIN, LOW);
+    digitalWrite(GLED_PIN, HIGH);
+
+    setPointReached = 0;
     
     lcd.setCursor(12, 0);
     lcd.print("STOP");
     
+    currentTime = 0;
     lcd.setCursor(11,1);
     lcd.print("00:00");
     
@@ -160,6 +172,8 @@ void idle_state() {
 void running() {
   if(previousState != RUNNING)
   {
+    digitalWrite(GLED_PIN, LOW);
+    digitalWrite(RLED_PIN, HIGH);
     lcd.setCursor(12, 0);
     lcd.print(" RUN");
     
@@ -168,11 +182,12 @@ void running() {
   
   if(pressure <= setPoint - LOWER_PRESS_THRESHOLD)
   {
-    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RELAY_PIN, LOW);
   }
   else if(pressure >= setPoint + UPPER_PRESS_THRESHOLD)
   {
-    digitalWrite(RELAY_PIN, LOW);
+    setPointReached = 1;
+    digitalWrite(RELAY_PIN, HIGH);
   }
    
   if(pressure != previousPressure)
@@ -210,22 +225,8 @@ ISR(TIMER1_COMPA_vect)
   pressure = PRESSURE_KPA(sensorVoltage);
   pressure = (pressure < 0) ? 0 : pressure;
 
-  if(currentState == RUNNING)
+  if(currentState == RUNNING && setPointReached == 1)
   {
     currentTime++;
   }
 }
-
-/*void pin_ISR()
-{
-  if(currentState == IDLE)
-  {
-    currentState = RUNNING;
-    previousState = IDLE;
-  }
-  else if(currentState == RUNNING)
-  {
-    currentState = IDLE;
-    previousState = RUNNING;
-  }
-}*/

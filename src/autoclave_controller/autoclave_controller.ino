@@ -48,6 +48,8 @@
 #define LOWER_PRESS_THRESHOLD 50
 #define UPPER_PRESS_THRESHOLD 20
 
+#define PRESSURE_KPA(V) ((3.2 * V) - 2.48) * 6.89476
+
 //Define states and modes
 enum state {
   IDLE,
@@ -360,9 +362,13 @@ void running()
 
 ISR(TIMER1_COMPA_vect)
 {
+  double sensorVoltage = 0;
+
   pressed = 0;
   //1. Read Sensor and store value
-  pressure = analogRead(SENSOR_PIN);
+  sensorVoltage = analogRead(SENSOR_PIN) * 0.0049;
+  pressure = PRESSURE_KPA(sensorVoltage);
+  pressure = (pressure < 0) ? 0 : pressure;
 
   if(currentState == RUNNING)
   {
