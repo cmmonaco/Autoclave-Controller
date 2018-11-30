@@ -7,6 +7,7 @@ An Arduino based controller for a steam sterilizing autoclave. The Model YX-18LM
 ## Directories in this Repository
 
 - `src`: contains the Arduino source code. See README in scr directory for more details.
+- `enclosure`: contains files and reference related to hardware.
 
 ## Bill of Materials
 
