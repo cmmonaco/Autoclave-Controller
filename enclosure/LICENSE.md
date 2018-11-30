@@ -1,6 +1,6 @@
-Triggered Counter (c) by Chris Monaco
+Autoclave Controller (c) by Chris Monaco
 
-Triggered Counter is licensed under a
+Autoclave Controler is licensed under a
 Creative Commons Attribution-ShareAlike 3.0 Unported License.
 
 You should have received a copy of the license along with this
